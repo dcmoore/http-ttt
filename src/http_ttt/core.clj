@@ -1,12 +1,23 @@
 (ns http-ttt.core
 	(:gen-class)
 	(:import (com.cuvuligio.server Server)))
-		
-(defn run-server []
+
+(defn start-server [server]
 	(doto
-		(Server.)
-		(.addRoute "/test" (new http-ttt.draw-board-response.MyResponse))
-		(.run)))
+		server
+		(.addRoute "/" (new http-ttt.index.IndexResponse))
+		(.addRoute "/game" (new http-ttt.draw-board-response.MyResponse))
+		(.start)))
+
+(defn stop-server [server]
+	(doto
+		server
+		(.gracefulKill)))
+
+(defn run-game []
+	(let [server (Server.)]
+		(start-server server)))
 
 (defn -main [& args]
-	(run-server))
+	(run-game)
+	(println "**********Tic Tac Toe**********"))
