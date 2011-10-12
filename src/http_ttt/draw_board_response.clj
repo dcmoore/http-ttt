@@ -40,9 +40,9 @@
 				"</td></tr></table>"
 				"<input type=\"submit\" value=\"Make Move\" name=\"move\" />"
 			"</form>"
-			; "<a href=\"/game?p=1&t=X\">New 1 Player Game: Team X</a><br />"
-			; "<a href=\"/game?p=1&t=O\">New 1 Player Game: Team O</a><br />"
-			"<a href=\"/game?p=2\">New 2 Player Game</a>"
+			"<a href=\"/game?p=1&t=X\">New 1 Player Game: Team X</a><br />"
+			"<a href=\"/game?p=1&t=O\">New 1 Player Game: Team O</a><br />"
+			"<a href=\"/game?p=2&t=N\">New 2 Player Game</a>"
 		"</body></html>"))
 
 (defn go-through-prev-moves [request]
@@ -63,13 +63,20 @@
 			(assoc board (Integer/parseInt move) (current-team board))
 			board)))
 
-(defn myResponse-get [this request]
+(defn make-computer-move [board request]
 	(cond
-		(and (= "1" (.get request "Param-p")) (= "X" (.get request "Param-t")))
-			;TODO
-		(and (= "1" (.get request "Param-p")) (= "O" (.get request "Param-t")))
-			;TODO
+		(and (= "X" (.get request "Param-t")) (= 2 (current-team board)) (not= true (over? board)))
+			(assoc board (get-best-move board) 2)
+		(and (= "O" (.get request "Param-t")) (= 1 (current-team board)) (not= true (over? board)))
+			(assoc board (get-best-move board) 1)
 		:else
-			(.getBytes (page-to-str
-				(populate-board request)
-				request))))
+			board))
+
+(defn myResponse-get [this request]
+	(if (= "1" (.get request "Param-p"))
+		(.getBytes (page-to-str
+			(make-computer-move (populate-board request) request)
+			request))
+		(.getBytes (page-to-str
+			(populate-board request)
+			request))))
