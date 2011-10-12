@@ -1,18 +1,39 @@
 (ns http-ttt.draw-board-response-spec
 	(:use [speclj.core]
+		[cloj_ttt_2.core]
 		[http-ttt.draw-board-response]))
 
 (describe "Http-ttt.draw-board-response"
-	(it "displays the board"
-		(binding [get-space (fn [& _] "test")]
-			(should= "<html><body><form name=\"board\" action=\"/\" method=\"post\"><table><tr><td>test</td><td>test</td><td>test</td></tr><tr><td>test</td><td>test</td><td>test</td></tr><tr><td>test</td><td>test</td><td>test</td></tr></table><input type=\"submit\" value=\"Make Move\" name=\"move\" /></form><a href=\"/?p=1&t=x\">New 1 Player Game: Team X</a><br /><a href=\"/?p=1&t=o\">New 1 Player Game: Team O</a><br /><a href=\"/?p=2\">New 2 Player Game</a></body></html>"
-				(draw-board))))
+	(with test-request (java.util.HashMap.))
 	
+	(before
+		(doto @test-request
+			(.put "Param-p" "2")
+			(.put "Param-t" "X")
+			(.put "Post-0" "1")
+			(.put "Post-1" "2")
+			(.put "Post-empty_space" "4")))
+		
 	(it "gets the space"
-		(binding [get-request (fn [& _] "x")]
-			(should= "X" (get-space 1)))
-		(binding [get-request (fn [& _] "o")]
-			(should= "O" (get-space 1)))
-		(binding [get-request (fn [& _] nil)]
-			(should= "<input type=\"radio\" value=\"1\" name=\"space\" />" (get-space 1))))
+		(should= "X<input type=\"hidden\" value=\"1\" name=\"0\" />" (space-to-str 0 {0 1, 1 2, 4 1}))
+		(should= "<input type=\"radio\" value=\"2\" name=\"empty_space\" />" (space-to-str 2 {0 1, 1 2, 4 1}))
+		(should= "O<input type=\"hidden\" value=\"2\" name=\"1\" />" (space-to-str 1 {0 1, 1 2, 4 1}))
+		(should= "&nbsp;" (space-to-str 3 {0 1, 1 2, 4 1, 2 2, 8 1})))
+	
+	(it "gets the board"
+		(should= "<html><body><form name=\"board\" action=\"/game?p=2&t=X\" method=\"post\"><table><tr><td>X<input type=\"hidden\" value=\"1\" name=\"0\" /></td><td>O<input type=\"hidden\" value=\"2\" name=\"1\" /></td><td><input type=\"radio\" value=\"2\" name=\"empty_space\" /></td></tr><tr><td><input type=\"radio\" value=\"3\" name=\"empty_space\" /></td><td>X<input type=\"hidden\" value=\"1\" name=\"4\" /></td><td><input type=\"radio\" value=\"5\" name=\"empty_space\" /></td></tr><tr><td><input type=\"radio\" value=\"6\" name=\"empty_space\" /></td><td><input type=\"radio\" value=\"7\" name=\"empty_space\" /></td><td><input type=\"radio\" value=\"8\" name=\"empty_space\" /></td></tr></table><input type=\"submit\" value=\"Make Move\" name=\"move\" /></form><a href=\"/game?p=2\">New 2 Player Game</a></body></html>" (page-to-str {0 1, 1 2, 4 1} @test-request))
+		(should= "<html><body><form name=\"board\" action=\"/game?p=2&t=X\" method=\"post\"><table><tr><td>X<input type=\"hidden\" value=\"1\" name=\"0\" /></td><td>O<input type=\"hidden\" value=\"2\" name=\"1\" /></td><td>O<input type=\"hidden\" value=\"2\" name=\"2\" /></td></tr><tr><td>&nbsp;</td><td>X<input type=\"hidden\" value=\"1\" name=\"4\" /></td><td>&nbsp;</td></tr><tr><td>&nbsp;</td><td>&nbsp;</td><td>X<input type=\"hidden\" value=\"1\" name=\"8\" /></td></tr></table><input type=\"submit\" value=\"Make Move\" name=\"move\" /></form><a href=\"/game?p=2\">New 2 Player Game</a></body></html>" (page-to-str {0 1, 1 2, 4 1, 2 2, 8 1} @test-request)))
+	
+	(it "loops through previous moves and returns a board"
+		(should= {0 1, 1 2} (go-through-prev-moves @test-request))
+		(let [new-test-request (doto @test-request (.put "Post-3" "1"))]
+			(should= {0 1, 1 2, 3 1} (go-through-prev-moves new-test-request))))
+	
+	(it "gets all prev moves and adds a new move if there is one"
+		(should= {4 1, 0 1, 1 2} (populate-board @test-request))
+		(let [new-test-request (doto @test-request (.put "Post-empty_space" "5"))]
+			(should= {5 1, 0 1, 1 2} (populate-board @test-request))))
+	
+	(it "gets a byte array representing the response"
+		(should= "<html><body><form name=\"board\" action=\"/game?p=2&t=X\" method=\"post\"><table><tr><td>X<input type=\"hidden\" value=\"1\" name=\"0\" /></td><td>O<input type=\"hidden\" value=\"2\" name=\"1\" /></td><td><input type=\"radio\" value=\"2\" name=\"empty_space\" /></td></tr><tr><td><input type=\"radio\" value=\"3\" name=\"empty_space\" /></td><td>X<input type=\"hidden\" value=\"1\" name=\"4\" /></td><td><input type=\"radio\" value=\"5\" name=\"empty_space\" /></td></tr><tr><td><input type=\"radio\" value=\"6\" name=\"empty_space\" /></td><td><input type=\"radio\" value=\"7\" name=\"empty_space\" /></td><td><input type=\"radio\" value=\"8\" name=\"empty_space\" /></td></tr></table><input type=\"submit\" value=\"Make Move\" name=\"move\" /></form><a href=\"/game?p=2\">New 2 Player Game</a></body></html>" (String. (myResponse-get "" @test-request))))
 )

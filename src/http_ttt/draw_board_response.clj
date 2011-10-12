@@ -5,50 +5,71 @@
 		:extends com.cuvuligio.server.ServerResponse
 		:prefix myResponse-))
 
-(def request (ref (new java.util.HashMap)))
-
-(defn get-request [key]
-	(.get @request key))
-
-(defn get-space [space-num]
+(defn space-to-str [space-num board]
 	(cond
-		(or (= "X" (get-request (str "Post-" space-num))) (= (str space-num) (get-request (str "Post-empty_space"))))
-			(str "X<input type=\"hidden\" value=\"X\" name=\"" space-num "\" />")
-		(= "O" (get-request (str "Post-" space-num)))
-			(str "O<input type=\"hidden\" value=\"O\" name=\"" space-num "\" />")
+		(= x (get board space-num))
+			(str "X<input type=\"hidden\" value=\"1\" name=\"" space-num "\" />")
+		(= o (get board space-num))
+			(str "O<input type=\"hidden\" value=\"2\" name=\"" space-num "\" />")
 		:else
-			(str "<input type=\"radio\" value=\"" space-num "\" name=\"empty_space\" />")))
+			(if (over? board)
+				"&nbsp;"
+				(str "<input type=\"radio\" value=\"" space-num "\" name=\"empty_space\" />"))))
 
-(defn draw-board []
+(defn page-to-str [board request]
 	(str "<html><body>"
-			"<form name=\"board\" action=\"/game\" method=\"post\">" ;action must be loaded with current params
+			"<form name=\"board\" action=\"/game?p=" (.get request "Param-p") "&t=" (.get request "Param-t") "\" method=\"post\">"
 				"<table><tr><td>"
-					(get-space 1)
+					(space-to-str 0 board)
 					"</td><td>"
-					(get-space 2)
+					(space-to-str 1 board)
 					"</td><td>"
-					(get-space 3)
+					(space-to-str 2 board)
 					"</td></tr><tr><td>"
-					(get-space 4)
+					(space-to-str 3 board)
 					"</td><td>"
-					(get-space 5)
+					(space-to-str 4 board)
 					"</td><td>"
-					(get-space 6)
+					(space-to-str 5 board)
 					"</td></tr><tr><td>"
-					(get-space 7)
+					(space-to-str 6 board)
 					"</td><td>"
-					(get-space 8)
+					(space-to-str 7 board)
 					"</td><td>"
-					(get-space 9)
+					(space-to-str 8 board)
 				"</td></tr></table>"
 				"<input type=\"submit\" value=\"Make Move\" name=\"move\" />"
 			"</form>"
-			"<a href=\"/game?p=1&t=x\">New 1 Player Game: Team X</a><br />"
-			"<a href=\"/game?p=1&t=o\">New 1 Player Game: Team O</a><br />"
+			; "<a href=\"/game?p=1&t=X\">New 1 Player Game: Team X</a><br />"
+			; "<a href=\"/game?p=1&t=O\">New 1 Player Game: Team O</a><br />"
 			"<a href=\"/game?p=2\">New 2 Player Game</a>"
 		"</body></html>"))
 
-(defn myResponse-get [this req]
-	(println req)
-	(dosync (ref-set request req))
-	(.getBytes (draw-board)))
+(defn go-through-prev-moves [request]
+	(loop [space (dec board-size)
+			board {}]
+		(if (not= -1 space)
+			(recur
+				(dec space)
+				(if (not= nil (.get request (str "Post-" space)))
+					(assoc board space (Integer/parseInt (.get request (str "Post-" space))))
+					board))
+			board)))
+
+(defn populate-board [request]
+	(let [board (go-through-prev-moves request)
+			move (.get request "Post-empty_space")]
+		(if (not= move nil)
+			(assoc board (Integer/parseInt move) (current-team board))
+			board)))
+
+(defn myResponse-get [this request]
+	(cond
+		(and (= "1" (.get request "Param-p")) (= "X" (.get request "Param-t")))
+			;TODO
+		(and (= "1" (.get request "Param-p")) (= "O" (.get request "Param-t")))
+			;TODO
+		:else
+			(.getBytes (page-to-str
+				(populate-board request)
+				request))))
